@@ -1,0 +1,364 @@
+---
+title: "NBA_Draft_Model_2018"
+author: "Ryan Salsbury"
+date: "5/13/2018"
+output: html_document
+---
+
+Test various models to predict the NBA performance of the upcoming 2018 draft class and the probability of them becoming a superstar, star, starter, bench bust player at the next level
+
+Load Packages
+```{r}
+
+library(sqldf)
+library(caTools)
+library(Hmisc)
+library(rpart)
+library(caret)
+library(randomForest)
+
+```
+
+Linear Regression Model - Predict OWS
+```{r}
+Training <- read.csv("Training.csv")
+Test <- read.csv("Test.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Get all numerical input variables and output variable(NBA_OWS)
+Training <- Training[, c(2:50,52)]
+Test <- Test[, c(2:50,52)]
+Prospects <- Prospects[, c(2:50)]
+
+#Scale Data
+Training[c(1:49)] = scale(Training[c(1:49)])
+Test[c(1:49)] = scale(Test[c(1:49)])
+
+#Create model using all variables
+lrOWSmodel1 = lm(NBA_OWS ~., data = Training)
+
+#view model summary and understand important variables
+summary(lrOWSmodel1)
+
+#Create new model using most important variables
+lrOWSmodel2 = lm(NBA_OWS ~ NCAA_AdjTempo + NCAA_MIN_PG + NCAA_STL_PG + NCAA_FT_FGA + NCAA_TSpct + NCAA_PPS + Height + NCAASeasons + AgeAtDraft + NCAA_WS, data = Training)
+
+#view new model summary 
+summary(lrOWSmodel2)
+
+#View accuracy of model on predicting test data using RMSE
+RMSE(predict(lrOWSmodel2, Test), Test$NBA_OWS)
+
+#RMSE = 3.15
+
+
+
+
+
+
+```
+
+Linear Regression Model - Predict DWS
+```{r}
+Training <- read.csv("Training.csv")
+Test <- read.csv("Test.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Get all numerical input variables and output variable(NBA_DWS)
+Training <- Training[, c(2:50,53)]
+Test <- Test[, c(2:50,53)]
+Prospects <- Prospects[, c(2:50)]
+
+#Scale Data
+Training[c(1:49)] = scale(Training[c(1:49)])
+Test[c(1:49)] = scale(Test[c(1:49)])
+
+#Create model using all variables
+lrDWSmodel1 = lm(NBA_DWS ~., data = Training)
+
+#view model summary and understand important variables
+summary(lrDWSmodel1)
+
+#Create new model using most important variables
+lrDWSmodel2 = lm(NBA_DWS ~ + NCAA_WS + NCAA_STL_PG + NCAA_DblDbl + NCAA_TplDbl + NCAA_PPS + Height + NCAA_DRtg + AgeAtDraft + NCAASeasons, data = Training)
+
+#view new model summary 
+summary(lrDWSmodel2)
+#Adj. R-Squared=.38
+
+#View accuracy of model on predicting test data using RMSE
+RMSE(predict(lrDWSmodel2, Test), Test$NBA_DWS)
+
+#RMSE = 1.93
+
+```
+
+
+Decision Tree Model - Predict OWS
+```{r}
+
+#Load Data
+Training <- read.csv("Training.csv")
+Test <- read.csv("Test.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Remove non-numerical columns
+Training <- Training[, c(2:50,52)]
+Test <- Test[, c(2:50,52)]
+Prospects <- Prospects[, c(2:50)]
+
+#Create model using all variables
+dtOWSmodel1 = rpart(formula = NBA_OWS ~ .,
+                  data = Training)
+
+#View details of model
+summary(dtOWSmodel1)
+
+#See how well it predicts test data
+RMSE(predict(dtOWSmodel1, Test), Test$NBA_OWS)
+
+#RMSE=2.39
+
+#Modify model using only significant data
+dtOWSmodel2 = rpart(formula = NBA_OWS ~ NCAA_WS + AgeAtDraft + NCAA_STL_PG + NCAA_DWS + NCAASeasons + NCAA_DRtg + NCAA_W + NCAA_PER + NCAA_Stl_TO,
+                  data = Training)
+
+#View details of model
+summary(dtOWSmodel2)
+
+#See how well new model predicts test data
+RMSE(predict(dtOWSmodel2, Test), Test$NBA_OWS)
+
+#RMSE=2.49
+
+#view diagram of decision tree
+plot(dtOWSmodel2)
+text(dtOWSmodel2)
+
+```
+
+Decision Tree Model - Predict DWS
+```{r}
+
+#Load Data
+Training <- read.csv("Training.csv")
+Test <- read.csv("Test.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Remove non-numerical columns
+Training <- Training[, c(2:50,53)]
+Test <- Test[, c(2:50,53)]
+Prospects <- Prospects[, c(2:50)]
+
+#Create model using all variables
+dtDWSmodel1 = rpart(formula = NBA_DWS ~ .,
+                  data = Training)
+
+#View details of model
+summary(dtDWSmodel1)
+
+#See how well it predicts test data
+RMSE(predict(dtDWSmodel1, Test), Test$NBA_DWS)
+
+#RMSE=2.14
+
+#Modify model using only significant data
+dtDWSmodel2 = rpart(formula = NBA_DWS ~ NCAA_WS + AgeAtDraft + NCAA_BLK_PG + NCAA_DWS + NCAASeasons
+                                     + NCAA_DRtg + NCAA_DblDbl + NCAA_PF_PG + NCAA_DEF_PG,
+                  data = Training)
+
+#View details of model
+summary(dtDWSmodel2)
+
+#See how well new model predicts test data
+RMSE(predict(dtDWSmodel2, Test), Test$NBA_DWS)
+
+#RMSE=1.72
+
+#view diagram of decision tree
+plot(dtDWSmodel2)
+text(dtDWSmodel2)
+
+```
+
+Random Forest - Predict OWS
+```{r}
+#Load data
+Training <- read.csv("Training.csv")
+Test <- read.csv("Test.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Get all numerical input variables and output variable(NBA_OWS)
+Training <- Training[, c(3:6, 9:50,52)]
+Test <- Test[, c(3:6, 9:50,52)]
+Prospects <- Prospects[, c(3:6, 9:50)]
+
+#Create Random Forest using all variables
+rfOWSmodel1 = randomForest(x = Training[, c(1:46)],
+                          y = Training$NBA_OWS,
+                          ntree = 500, mtry = 46)
+
+#view list of all variables and how important they are in predicting OWS
+importance(rfOWSmodel1)
+
+#Grab the 10 most important variables and output variable
+rfTrainOWS <- sqldf("select NCAA_WS, NCAA_AdjTempo, NCAA_AdjOE, AgeAtDraft, NCAA_FTpct_PG, NCAA_STL_PG, NCAA_PPS, NCAA_PPR, NCAA_PER, NCAA_Ortg, NBA_OWS FROM Training")
+
+rfTestOWS <- sqldf("select NCAA_WS, NCAA_AdjTempo, NCAA_AdjOE, AgeAtDraft, NCAA_FTpct_PG, NCAA_STL_PG, NCAA_PPS, NCAA_PPR, NCAA_PER, NCAA_Ortg, NBA_OWS FROM Test")
+
+#Run the model with updated variables using 500 trees
+rfOWSmodel2 = randomForest(x = rfTrainOWS[, c(1:10)],
+                          y = rfTrainOWS$NBA_OWS,
+                          ntree = 500, mtry = 10)
+
+#view model details and calculate accuracy(RMSE) on Test Data
+rfOWSmodel2
+RMSE(predict(rfOWSmodel2, rfTestOWS), rfTestOWS$NBA_OWS)
+
+#RMSE = 2.13 - Most Accurate Model
+
+#Make predictions on new data(2018 Prospects)
+rfProspectsOWS <- sqldf("select NCAA_WS, NCAA_AdjTempo, NCAA_AdjOE, AgeAtDraft, NCAA_FTpct_PG, NCAA_STL_PG, NCAA_PPS, NCAA_PPR, NCAA_PER, NCAA_Ortg FROM Prospects")
+
+rfOWSpred = predict(rfOWSmodel2, newdata = as.data.frame(rfProspectsOWS))
+
+#Convert predictions to data frame
+rfOWSpred = as.data.frame(rfOWSpred)
+
+#Read Prospects to get player names
+Prospects <- read.csv("Prospects.csv")
+
+#Join predictions to Prospects
+ProspectOWSPred <- sqldf("select Prospects.Player, rfOWSpred.* from Prospects JOIN rfOWSpred ON Prospects.rowid = rfOWSpred.rowid")
+
+```
+
+Random Forest - Predict DWS
+```{r}
+
+#Load data
+Training <- read.csv("Training.csv")
+Test <- read.csv("Test.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Get all numerical input variables and output variable(NBA_DWS)
+Training <- Training[, c(3:6, 9:50,53)]
+Test <- Test[, c(3:6, 9:50,53)]
+Prospects <- Prospects[, c(3:6, 9:50)]
+
+#Create Random Forest using all variables
+rfDWSmodel1 = randomForest(x = Training[, c(1:46)],
+                          y = Training$NBA_DWS,
+                          ntree = 500, mtry = 46)
+
+#view list of all variables and how important they are in predicting DWS
+importance(rfDWSmodel1)
+
+#Grab the most important variables and the output variable
+rfTrainDWS <- sqldf("select NCAA_WS, NCAA_DWS, NCAA_AdjOE, AgeAtDraft, NCAA_STL_PG, NCAA_PER, NCAA_PF_PG, NBA_DWS FROM Training")
+
+rfTestDWS <- sqldf("select NCAA_WS, NCAA_DWS, NCAA_AdjOE, AgeAtDraft, NCAA_STL_PG, NCAA_PER, NCAA_PF_PG, NBA_DWS FROM Test")
+
+#Run the model with updated variables using 500 trees
+rfDWSmodel2 = randomForest(x = rfTrainDWS[, c(1:7)],
+                          y = rfTrainDWS$NBA_DWS,
+                          ntree = 500, mtry = 7)
+
+#view model details and calculate accuracy(RMSE) on Test Data
+rfDWSmodel2
+RMSE(predict(rfDWSmodel2, rfTestDWS), rfTestDWS$NBA_DWS)
+
+#RMSE = 1.64 - Most accurate Model
+
+#Make predictions on new data(2018 Prospects)
+rfProspectsDWS <- sqldf("select NCAA_WS, NCAA_DWS, NCAA_AdjOE, AgeAtDraft, NCAA_STL_PG, NCAA_PER, NCAA_PF_PG FROM Prospects")
+
+rfDWSpred = predict(rfDWSmodel2, newdata = as.data.frame(rfProspectsDWS))
+
+#Convert predictions to data frame
+rfDWSpred = as.data.frame(rfDWSpred)
+
+#Read Prospects to get player names
+Prospects <- read.csv("Prospects.csv")
+
+#Join predictions to Prospects
+ProspectDWSPred <- sqldf("select Prospects.Player, rfDWSpred.* from Prospects JOIN rfDWSpred ON Prospects.rowid = rfDWSpred.rowid")
+
+#Join DWS Predictions to OWS Predictions to get combined OWS and DWS Predictions
+ProspectPredictions <- sqldf("select ProspectOWSPred.Player, ProspectOWSPred.rfOWSpred OWS, ProspectDWSPred.rfDWSpred DWS, ProspectOWSPred.rfOWSpred + ProspectDWSPred.rfDWSpred WS from ProspectOWSPred JOIN ProspectDWSPred ON ProspectOWSPred.Player = ProspectDWSPred.Player")
+
+```
+
+Predict Star Potential - Random Forest
+```{r}
+
+#Load Classification datasets
+TrainingClass <- read.csv("TrainingClass.csv")
+TestClass <- read.csv("TestClass.csv")
+Prospects <- read.csv("Prospects.csv")
+
+#Reduce Dataset so that the large number of bust players does not negatively impact results.
+TrainingClass <- sqldf("select * from TrainingClass where rowid <= 280")
+
+#Reduce dataset to numerical variables and outcome variable(Role)
+TrainingClass <- TrainingClass[, c(3:6, 9:50,56)]
+TestClass <- TestClass[, c(3:6,9:50,56)]
+Prospects <- Prospects[, c(2:50)]
+
+rfTrainRole <- sqldf("select * FROM TrainingClass")
+rfTestRole <- sqldf("select * FROM TestClass")
+
+#Convert outcome variable to a factor
+rfTrainRole$Role <- as.factor(rfTrainRole$Role)
+rfTestRole$Role <- as.factor(rfTestRole$Role)
+
+#Create model with all variables
+rfRolemodel = randomForest(x = rfTrainRole[, c(1:46)],
+                          y = rfTrainRole$Role,
+                          ntree =500, mtry=46)
+
+#View variable importance
+importance(rfRolemodel)
+
+#Grab most important variables and output variable
+rfTrainRole <- sqldf("select AgeAtDraft, NCAA_DWS, NCAA_AdjOE, NCAA_STL_PG,NCAA_AdjTempo, NCAA_PPR, NCAA_PER, NCAA_WS,NCAA_TOV_PG, NCAA_FTM_PG, NCAA_OFF_PG, Role FROM TrainingClass")
+
+rfTestRole <- sqldf("select AgeAtDraft, NCAA_DWS, NCAA_AdjOE, NCAA_STL_PG,NCAA_AdjTempo, NCAA_PPR, NCAA_PER, NCAA_WS,NCAA_TOV_PG, NCAA_FTM_PG, NCAA_OFF_PG,Role FROM TestClass")
+
+#convert outcome variable to factor
+rfTrainRole$Role <- as.factor(rfTrainRole$Role)
+rfTestRole$Role <- as.factor(rfTestRole$Role)
+
+
+#Create new model with new variables using 100 trees and 8 variables at each split
+rfRolemodel = randomForest(x = rfTrainRole[, c(1:11)],
+                          y = rfTrainRole$Role,
+                          ntree =100, mtry=8)
+
+#view model details 
+rfRolemodel
+
+#Make predictions on new data(2018 Prospects)
+rfProspectRole <- sqldf("select AgeAtDraft, NCAA_DWS, NCAA_AdjOE, NCAA_STL_PG,NCAA_AdjTempo, NCAA_PPR, NCAA_PER, NCAA_WS,NCAA_TOV_PG, NCAA_FTM_PG, NCAA_OFF_PG FROM Prospects")
+
+#type = "prob"" gives the probabilty of each potential outcome rather than making a single prediction.
+rfRolepred = predict(rfRolemodel, newdata = as.data.frame(rfProspectRole), type = "prob")
+
+#Convert to data frame
+rfRolepred = as.data.frame(rfRolepred)
+
+#Update Column Name
+colnames(rfRolepred) = c("Superstar", "Star", "Starter", "Bench", "Bust")
+
+#Read Prospects to get player names
+Prospects <- read.csv("Prospects.csv")
+
+#Join Role Classification predictions to WS Predictions
+ProspectRolePred <- sqldf("select * from Prospects JOIN rfRolepred ON Prospects.rowid = rfRolepred.rowid")
+
+
+#Join Role Classification predictions to WS Predictions
+ProspectPred <- sqldf("select ProspectPredictions.*, ProspectRolePred.Superstar, ProspectRolePred.Star, ProspectRolePred.Starter, ProspectRolePred.Bench, ProspectRolePred.Bust  from ProspectPredictions JOIN ProspectRolePred ON ProspectPredictions.Player = ProspectRolePred.Player")
+
+
+```
